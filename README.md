@@ -126,3 +126,51 @@ To demonstrate the robustness of the architecture, the system includes two real-
    ```
    *The server auto-generates a new unique Private/Public key pair and a fresh Genesis Block upon startup.*
 5. **Master Reset:** To instantly zero-out the blockchain and reset all 10 Voter statuses back to pending without rebooting the server, click the faint grey `[Master Reset]` link at the bottom right of the Admin dashboard.
+
+---
+
+## 🚀 Deployment Roadmap
+
+As the system moves toward production readiness, the following steps are required for a hardened deployment:
+
+### 1. Database Migration Path
+The current state relies on `backend/db_stub.py`. Before production:
+* Install SQLAlchemy & Alembic (`pip install flask-sqlalchemy psycopg2-binary alembic`).
+* Define strict relational models in `backend/models.py` for `Voter`, `Receipt`, and `ElectionStateHistory`.
+* Use `alembic init` to set up migration tracking.
+* Replace the mock operations in `DatabaseStub` with actual PostgreSQL transactions.
+
+### 2. Environment Variables Needed
+A robust `.env` file must be provisioned injected securely into `config.py`:
+* `FLASK_ENV`: Set to `production`.
+* `DATABASE_URL`: Connection string for PostgreSQL (e.g., `postgresql://user:pass@db:5432/trust_vote`).
+* `SECRET_KEY`: A cryptographically secure random string for Flask-Session.
+* `PORT` / `PEER_NODES`: The list of networked IPs/Domains replacing the hardcoded `127.0.0.1` peer list.
+
+### 3. Docker Compose Setup
+The system components (Web Frontend, SocketIO Server, PostgreSQL DB, Redis for Sessions/PubSub) must be orchestrated.
+
+```yaml
+version: '3.8'
+services:
+  webapp:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres_db:5432/trust_vote
+    depends_on:
+      - postgres_db
+      - redis_cache
+  
+  postgres_db:
+    image: postgres:14-alpine
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=trust_vote
+      
+  redis_cache:
+    image: redis:alpine
+```
+
+Upon standing up the containers, `flask db upgrade` must be run sequentially prior to launching the initial Genesis block.
